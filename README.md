@@ -18,7 +18,7 @@ This utility supports outputting data to the following collection tools:
 
 **Get candlestick data for each hour since the beginning of 01/01/17, and pipe it to a csv file**
 
-`$ gdax-candle-extractor -start=2017-01-01T00:00:09+00:00 -granularity=1h -out-type=csv -out-path=./data.csv`
+`$ gdax-candle-extractor -start=2017-01-01T00:00:09+00:00 -granularity=3600 -out-type=csv -out-path=./data.csv`
 
 ### Options
 
