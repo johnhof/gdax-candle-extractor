@@ -1,6 +1,6 @@
 # GDAX Candlestick Extractor
 
-This package is designed to simplify historical candlestick data extraction from the GDAX API, for the purposes of analysis and  model training.
+This package is designed to simplify historical [candlestick](http://www.investopedia.com/terms/c/candlestick.asp) data extraction from the GDAX API, for the purposes of analysis and  model training.
 
 The extractor itself is abstracted to allow use in existing golang codebases in addition to the command line util.
 
