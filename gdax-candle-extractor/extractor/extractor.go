@@ -22,6 +22,7 @@ type ExtractorConfig struct {
 
 // ExtractingConfig providesvalues for the actual extracting execution
 type ExtractingConfig struct {
+	BufferSize  int
 	Product     string
 	Start       time.Time
 	End         time.Time
@@ -38,9 +39,9 @@ func New(config ExtractorConfig) *Extractor {
 	}
 }
 
-// Extract gets trade history and writes each result to the returned pipe
-func (m *Extractor) Extract(config ExtractingConfig) *CandlePipe {
-	p := NewCandlePipe()
+// Extract gets trade history and writes each result to the returned channel
+func (m *Extractor) Extract(config ExtractingConfig) *chan Candlestick {
+	c := make(chan Candlestick, config.BufferSize)
 	go m.ExtractToPipe(p, config)
 	return p
 }

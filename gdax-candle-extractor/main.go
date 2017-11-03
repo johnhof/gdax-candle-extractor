@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"./extractor"
+	"github.com/johnhof/gdax-candle-extractor/extractor"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
