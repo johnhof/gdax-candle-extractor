@@ -9,8 +9,10 @@ import (
 
 // Extractor encapsulates the extracting configuration and process
 type Extractor struct {
-	Client *exchange.Client
-	Config ExtractorConfig
+	Client         *exchange.Client
+	Config         ExtractorConfig
+	CandlesticChan chan *Candlestick
+	ErrorChan      chan error
 }
 
 // ExtractorConfig provides values for the extractor-GDAX request configuration
@@ -40,15 +42,15 @@ func New(config ExtractorConfig) *Extractor {
 }
 
 // Extract gets trade history and writes each result to the returned channel
-func (m *Extractor) Extract(config ExtractingConfig) *chan Candlestick {
-	c := make(chan Candlestick, config.BufferSize)
-	go m.ExtractToPipe(p, config)
-	return p
+func (m *Extractor) Extract(config ExtractingConfig) (chan *Candlestick, chan error) {
+	m.CandlesticChan = make(chan *Candlestick, config.BufferSize)
+	m.ErrorChan = make(chan error)
+	go m.ExtractToChan(m.CandlesticChan, m.ErrorChan, config)
+	return m.CandlesticChan, m.ErrorChan
 }
 
-// ExtractToPipe gets trade history and writes each result to the provided pipe
-func (m *Extractor) ExtractToPipe(p *CandlePipe, config ExtractingConfig) {
-	defer p.Writer.Close()
+// ExtractToChan gets trade history and writes each result to the provided pipe
+func (m *Extractor) ExtractToChan(c chan *Candlestick, e chan error, config ExtractingConfig) {
 	rngs := buildReqRanges(config)
 
 	// sleep time is used to wait between requests and evade ratelimiting
@@ -66,10 +68,13 @@ func (m *Extractor) ExtractToPipe(p *CandlePipe, config ExtractingConfig) {
 			fmt.Printf("\n=> REQ: [%s:%d] %s=%s\n<= RES: %d results\n", config.Product, config.Granularity, tRng, tDif, len(cdls))
 		}
 		if err != nil {
-			// TODO: better handling
-			fmt.Println(err)
+			e <- err
 		}
-		p.WriteAll(cdls)
+		for _, cdl := range cdls {
+			func(candle Candlestick) {
+				c <- &candle
+			}(cdl)
+		}
 
 		// sleep until we reached an acceptable rate according to the GDAX API
 		time.Sleep(waitMin - (time.Since(started) / time.Millisecond))
@@ -92,6 +97,16 @@ func (m *Extractor) GetCandleRange(product string, start time.Time, end time.Tim
 	}
 
 	return CandlesFromRates(granularity, rts), nil
+}
+
+// Candlesticks returns the candlestick channel
+func (m *Extractor) Candlesticks() chan *Candlestick {
+	return m.CandlesticChan
+}
+
+// Errors returns the error channel
+func (m *Extractor) Errors() chan error {
+	return m.ErrorChan
 }
 
 //

@@ -1,19 +1,27 @@
 package receivers
 
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+
+	"github.com/johnhof/gdax-candle-extractor/extractor"
+)
+
 // StdoutRcv implements Receiver to allow it to be used in a collector
 type StdoutRcv struct {
 	Mutex *sync.Mutex
 }
 
-// NewStdoutReceiver build a stdout Receiver
-func NewStdoutReceiver(path string) *StdoutRcv {
+// NewStdout build a stdout Receiver
+func NewStdout(path string) *StdoutRcv {
 	return &StdoutRcv{
 		Mutex: &sync.Mutex{},
 	}
 }
 
 // Collect prints the Candlestick to sstdout
-func (r *StdoutRcv) Collect(c *Candlestick) error {
+func (r *StdoutRcv) Collect(c *extractor.Candlestick) error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 	b, err := json.Marshal(c)

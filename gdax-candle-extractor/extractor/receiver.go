@@ -1,4 +1,4 @@
-package receivers
+package extractor
 
 // Receiver provides an interface to allow arbitrary collection utilities
 // defined within this package, or externally

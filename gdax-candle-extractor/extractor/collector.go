@@ -8,13 +8,13 @@ import (
 // Collector provides and interface to collect to N collectors froma  provided pipe
 type Collector struct {
 	Verbose      bool
-	Candlesticks *chan Candlestick
-	Errors       *chan error
+	Candlesticks chan *Candlestick
+	Errors       chan error
 	Receivers    []Receiver
 }
 
 // NewCollector builds a collector with the provided chan, and using any receivers provided
-func NewCollector(cdls *chan Candlestick, rcvs ...Receiver) *Collector {
+func NewCollector(cdls chan *Candlestick, rcvs ...Receiver) *Collector {
 	return &Collector{
 		Candlesticks: cdls,
 		Receivers:    rcvs,
@@ -27,15 +27,15 @@ func (c *Collector) Add(r Receiver) {
 }
 
 // Collect collects from either the collectors chan, or the chan param, if provided
-func (c *Collector) Collect(cdls ...*chan Candlestick) error {
+func (c *Collector) Collect(cdls ...chan *Candlestick) error {
 	defer c.Close()
 
 	// allow the chan to be passed in
-	var candlesticks *chan Candlestick
+	var candlesticks chan *Candlestick
 	if len(cdls) == 1 {
 		candlesticks = cdls[0]
 	} else if len(cdls) > 1 {
-		return fmt.Errorf("Collect was given [%d] pipes. A maximum of one is accepted", len(cdls)))
+		return fmt.Errorf("Collect was given [%d] pipes. A maximum of one is accepted", len(cdls))
 	} else {
 		candlesticks = c.Candlesticks
 	}
@@ -54,13 +54,14 @@ func (c *Collector) Collect(cdls ...*chan Candlestick) error {
 	return nil
 }
 
-func (c *Collector) fanOut(cdl *Candlestick) (eof bool, err error) {
-	for i := range c.Receivers {
+func (c *Collector) fanOut(cdl *Candlestick) (err error) {
+	for i, rcv := range c.Receivers {
 		cErr := rcv.Collect(cdl)
 		if cErr != nil {
 			c.Errors <- cErr
 		}
 	}
+	return nil
 }
 
 // Close closes all receivers

@@ -9,14 +9,14 @@ import (
 )
 
 // JSONRcv implements Receiver to allow it to be used in a collector
-type JSONRcv struct {
+type NLDJSONRcv struct {
 	Path    string
 	Pointer *os.File
 	Mutex   *sync.Mutex
 }
 
-// NewJSON build a json Receiver, cretating a blank file. existing files will be overwritten
-func NewJSON(path string) (*JSONRcv, error) {
+// NewNDLJSON build a json Receiver, cretating a blank file. existing files will be overwritten
+func NewNLDJSON(path string) (*JSONRcv, error) {
 	ptr, err := os.Create(path)
 	if err != nil {
 		return &JSONRcv{}, err
@@ -33,7 +33,7 @@ func NewJSON(path string) (*JSONRcv, error) {
 }
 
 // Collect writes the Candlestick to the output file
-func (r *JSONRcv) Collect(c *extractor.Candlestick) error {
+func (r *NLDJSONRcv) Collect(c *extractor.Candlestick) error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 
@@ -52,7 +52,7 @@ func (r *JSONRcv) Collect(c *extractor.Candlestick) error {
 }
 
 // Close closes the file pointer
-func (r *JSONRcv) Close() {
+func (r *NLDJSONRcv) Close() {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 	defer r.Pointer.Close()

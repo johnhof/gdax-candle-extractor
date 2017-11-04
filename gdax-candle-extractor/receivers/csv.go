@@ -1,5 +1,15 @@
 package receivers
 
+import (
+	"encoding/csv"
+	"fmt"
+	"os"
+	"strconv"
+	"sync"
+
+	"github.com/johnhof/gdax-candle-extractor/extractor"
+)
+
 // CSVRcv implements Receiver to allow it to be used in a collector
 type CSVRcv struct {
 	Path    string
@@ -8,8 +18,8 @@ type CSVRcv struct {
 	Mutex   *sync.Mutex
 }
 
-// NewCSVReceiver build a csv Receiver, cretating a blank file. existing files will be overwritten
-func NewCSVReceiver(path string) (*CSVRcv, error) {
+// NewCSV build a csv Receiver, cretating a blank file. existing files will be overwritten
+func NewCSV(path string) (*CSVRcv, error) {
 	ptr, err := os.Create(path)
 	if err != nil {
 		return &CSVRcv{}, err
@@ -31,7 +41,7 @@ func NewCSVReceiver(path string) (*CSVRcv, error) {
 }
 
 // Collect writes the Candlestick to the output file
-func (r *CSVRcv) Collect(c *Candlestick) error {
+func (r *CSVRcv) Collect(c *extractor.Candlestick) error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 	defer r.Writer.Flush()

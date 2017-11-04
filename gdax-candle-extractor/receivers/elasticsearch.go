@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync"
+
+	"github.com/johnhof/gdax-candle-extractor/extractor"
 )
 
 // ESRcv implements Receiver to allow it ot be used in a collector
@@ -22,12 +24,12 @@ type ESRcv struct {
 
 // ESDocBody wraps the candlestick in an accepted json format for the upsert operation
 type ESDocBody struct {
-	Doc      *Candlestick `json:"doc"`
-	AsUpsert bool         `json:"doc_as_upsert"`
+	Doc      *extractor.Candlestick `json:"doc"`
+	AsUpsert bool                   `json:"doc_as_upsert"`
 }
 
-// NewESReceiver build a json Receiver, cretating a blank file. existing files will be overwritten
-func NewESReceiver(index string, host string, port string, secOpt ...bool) (*ESRcv, error) {
+// NewElasticsearch build a json Receiver, cretating a blank file. existing files will be overwritten
+func NewElasticsearch(index string, host string, port string, secOpt ...bool) (*ESRcv, error) {
 	// prt, err := os.OpenFile(filename, os.O_APPEND, 0666)
 	protocol := "http"
 	secure := false
@@ -51,7 +53,7 @@ func NewESReceiver(index string, host string, port string, secOpt ...bool) (*ESR
 // Collect upserts the candlestick into the set index. the candlestick
 // granularity in seconds is the type, and the time string is the ID, used to
 // prevent double-indexing existing executions
-func (r *ESRcv) Collect(c *Candlestick) error {
+func (r *ESRcv) Collect(c *extractor.Candlestick) error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 	b, err := json.Marshal(ESDocBody{c, true})
