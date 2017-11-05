@@ -2,22 +2,35 @@ package extractor
 
 import (
 	"errors"
-	"fmt"
+	"sync"
 )
 
-// Collector provides and interface to collect to N collectors froma  provided pipe
+// Collector acts as an N fanout pipe from an extractor to receivers
 type Collector struct {
-	Verbose      bool
-	Candlesticks chan *Candlestick
-	Errors       chan error
-	Receivers    []Receiver
+	Extractor Collectable
+	Receivers []Receiver
+	ErrorChan chan error
+	running   bool
+}
+
+// CollectorConfig encapsulates the collection configuration and process
+type CollectorConfig struct {
+	Extractor Collectable
+	Receivers []Receiver
+}
+
+// Collectable provides an abstraction to allow any etractor impementation to be used
+type Collectable interface {
+	Candlesticks() chan *Candlestick
+	Errors() chan error
+	Stop()
 }
 
 // NewCollector builds a collector with the provided chan, and using any receivers provided
-func NewCollector(cdls chan *Candlestick, rcvs ...Receiver) *Collector {
+func NewCollector(config *CollectorConfig) *Collector {
 	return &Collector{
-		Candlesticks: cdls,
-		Receivers:    rcvs,
+		Extractor: config.Extractor,
+		Receivers: config.Receivers,
 	}
 }
 
@@ -27,47 +40,57 @@ func (c *Collector) Add(r Receiver) {
 }
 
 // Collect collects from either the collectors chan, or the chan param, if provided
-func (c *Collector) Collect(cdls ...chan *Candlestick) error {
-	defer c.Close()
-
-	// allow the chan to be passed in
-	var candlesticks chan *Candlestick
-	if len(cdls) == 1 {
-		candlesticks = cdls[0]
-	} else if len(cdls) > 1 {
-		return fmt.Errorf("Collect was given [%d] pipes. A maximum of one is accepted", len(cdls))
-	} else {
-		candlesticks = c.Candlesticks
+func (c *Collector) Collect() error {
+	if c.running {
+		return errors.New("Collection already started")
 	}
+	defer c.Close()
+	c.ErrorChan = make(chan error)
 
 	if len(c.Receivers) == 0 {
 		return errors.New("No receivers set for the collector when Collect was called")
 	}
 
-	for {
-		c.fanOut(<-candlesticks)
-		if c.Verbose {
-			fmt.Print(".")
-		}
-	}
+	c.running = true
+	var wg sync.WaitGroup
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for cdl := range c.Extractor.Candlesticks() {
+			c.fanOut(cdl)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for err := range c.Extractor.Errors() {
+			c.ErrorChan <- err
+		}
+	}()
+	wg.Wait()
 	return nil
 }
 
 func (c *Collector) fanOut(cdl *Candlestick) (err error) {
-	for i, rcv := range c.Receivers {
+	for _, rcv := range c.Receivers {
 		cErr := rcv.Collect(cdl)
 		if cErr != nil {
-			c.Errors <- cErr
+			c.ErrorChan <- cErr
 		}
 	}
 	return nil
 }
 
-// Close closes all receivers
+func (c *Collector) Errors() chan error {
+	return c.ErrorChan
+}
+
+// Close stops the extractor and closes all receivers
 func (c *Collector) Close() {
-	close(c.Candlesticks)
-	close(c.Errors)
+	c.running = false
+	close(c.ErrorChan)
 
 	// Close all receivers
 	for i := range c.Receivers {

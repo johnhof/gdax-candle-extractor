@@ -14,7 +14,7 @@ type StdoutRcv struct {
 }
 
 // NewStdout build a stdout Receiver
-func NewStdout(path string) *StdoutRcv {
+func NewStdout() *StdoutRcv {
 	return &StdoutRcv{
 		Mutex: &sync.Mutex{},
 	}

@@ -5,34 +5,80 @@ import (
 	"time"
 
 	"github.com/johnhof/gdax-candle-extractor/extractor"
+	"github.com/johnhof/gdax-candle-extractor/receivers"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
+type Log struct{}
+
+func (l Log) Printf(format string, v ...interface{}) {
+	fmt.Printf(format, v...)
+}
+
 var (
-	now         = time.Now()
-	timeFmt     = time.RFC3339 // "2017-01-01T00:00:00+00:00"
-	verbose     = kingpin.Flag("verbose", "verbose logging").Short('v').Default("false").Bool()
-	key         = kingpin.Flag("key", "GDAX API key").Short('k').OverrideDefaultFromEnvar("GDAX_API_KEY").Required().String()
-	secret      = kingpin.Flag("secret", "GDAX API secret").Short('s').OverrideDefaultFromEnvar("GDAX_API_SECRET").Required().String()
-	passphrase  = kingpin.Flag("passphrase", "GDAX API passphrase").Short('p').OverrideDefaultFromEnvar("GDAX_API_PASSPHRASE").Required().String()
-	product     = kingpin.Flag("product", "Product ID to extract [BTC-USD, ETH-USD, LTC-USD]").Required().String()
-	granularity = kingpin.Flag("granularity", "Granularity in seconds of blocks in the candlestick data").Short('G').Default("86400").Int()
-	start       = kingpin.Flag("start", "start time as RFC3339").Short('S').Default(now.Add(-24 * 7 * time.Hour).Format(timeFmt)).String()
-	end         = kingpin.Flag("end", "End time in as RFC3339").Short('E').Default(now.Format(timeFmt)).String()
+	now     = time.Now()
+	timeFmt = time.RFC3339 // "2017-01-01T00:00:00+00:00"
+	verbose = kingpin.Flag("verbose", "verbose logging").Short('v').
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_VERBOSE").
+		Default("false").Bool()
+	key = kingpin.Flag("key", "GDAX API key").Short('k').
+		OverrideDefaultFromEnvar("GDAX_API_KEY").
+		Required().String()
+	secret = kingpin.Flag("secret", "GDAX API secret").Short('s').
+		OverrideDefaultFromEnvar("GDAX_API_SECRET").
+		Required().String()
+	passphrase = kingpin.Flag("passphrase", "GDAX API passphrase").Short('p').
+			OverrideDefaultFromEnvar("GDAX_API_PASSPHRASE").
+			Required().String()
+	product = kingpin.Flag("product", "Product ID to extract [BTC-USD, ETH-USD, LTC-USD]").
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_PRODUCT").
+		Required().String()
+	granularity = kingpin.Flag("granularity", "Granularity in seconds of blocks in the candlestick data").Short('G').
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_GRANULARITY").
+			Default("86400").Int()
+	bufferSize = kingpin.Flag("buffer-size", "Size of candlestick buffer waiting for collection").Short('b').
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_BUFFER_SIZE").
+			Default("100").Int()
+	start = kingpin.Flag("start", "start time as RFC3339").Short('S').
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_START").
+		Default(now.Add(-24 * 7 * time.Hour).Format(timeFmt)).String()
+	end = kingpin.Flag("end", "End time in as RFC3339").Short('E').
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_END").
+		Default(now.Format(timeFmt)).String()
 
-	outStd = kingpin.Flag("out-stdout", "Write output to stdout. Used by default if no other output is specified").Default("false").Bool()
+	outStd = kingpin.Flag("out-stdout", "Write output to stdout. Used by default if no other output is specified").
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_STDOUT").
+		Default("false").Bool()
 
-	outCSV     = kingpin.Flag("out-csv", "Write output to CSV file").Default("false").Bool()
-	outCSVFile = kingpin.Flag("out-csv-file", "Set the file to write to").Default("out.csv").String()
+	outCSV = kingpin.Flag("out-csv", "Write output to CSV file").
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_CSV").
+		Default("false").Bool()
+	outCSVFile = kingpin.Flag("out-csv-file", "Set the file to write to").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_CSV_FILE").
+			Default("out.csv").String()
 
-	outJSON     = kingpin.Flag("out-json", "Write output to JSON file").Default("false").Bool()
-	outJSONFile = kingpin.Flag("out-json-file", "Set the file to write to").Default("out.json").String()
+	outJSON = kingpin.Flag("out-json", "Write output to JSON file").
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_JSON").
+		Default("false").Bool()
+	outJSONFile = kingpin.Flag("out-json-file", "Set the file to write to").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_JSON_FILE").
+			Default("out.json").String()
 
-	outES       = kingpin.Flag("out-es", "Index output to elasticsearch").Default("false").Bool()
-	outESIdx    = kingpin.Flag("out-es-index", "Elasticsearch index to use for output").Default("candlestick").String()
-	outESHost   = kingpin.Flag("out-es-host", "set the elasticsearch host to write to").Default("localhost").String()
-	outESPort   = kingpin.Flag("out-es-port", "set the elasticsearch port to write to").Default("9200").String()
-	outESSecure = kingpin.Flag("out-es-secure", "set the elasticsearch requests to use https").Default("false").Bool()
+	outES = kingpin.Flag("out-es", "Index output to elasticsearch").
+		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES").
+		Default("false").Bool()
+	outESIdx = kingpin.Flag("out-es-index", "Elasticsearch index to use for output").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_INDEX").
+			Default("candlestick").String()
+	outESHost = kingpin.Flag("out-es-host", "set the elasticsearch host to write to").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_HOST").
+			Default("localhost").String()
+	outESPort = kingpin.Flag("out-es-port", "set the elasticsearch port to write to").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_PORT").
+			Default("9200").String()
+	outESSecure = kingpin.Flag("out-es-secure", "set the elasticsearch requests to use https").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_SECURE").
+			Default("false").Bool()
 )
 
 func main() {
@@ -42,64 +88,72 @@ func main() {
 		printVars()
 	}
 
-	e := extractor.New(extractor.ExtractorConfig{
+	xtrct := extractor.New(&extractor.ExtractorConfig{
 		Key:        *key,
 		Secret:     *secret,
 		Passphrase: *passphrase,
+		BufferSize: *bufferSize,
+		Logger:     Log{},
+		Extraction: &extractor.ExtractionConfig{
+			Product:     *product,
+			Start:       parseTime(*start),
+			End:         parseTime(*end),
+			Granularity: *granularity,
+		},
 	})
 
 	fmt.Print("\nExtracting...\n\n")
 	started := time.Now()
 
-	pipe := e.Extract(extractor.ExtractingConfig{
-		Product:     *product,
-		Start:       parseTime(*start),
-		End:         parseTime(*end),
-		Granularity: *granularity,
-		Verbose:     *verbose,
+	err := xtrct.Start()
+	check(err)
+
+	collector := extractor.NewCollector(&extractor.CollectorConfig{
+		Extractor: xtrct,
 	})
-
-	c := extractor.NewCollector(pipe)
-
-	// verbose logging only if stdout isnt already enables
-	if *verbose && !*outStd {
-		c.Verbose = *verbose
-	}
 
 	// Write out to a CSV file
 	if *outCSV {
-		rcv, err := extractor.NewCSVReceiver(*outCSVFile)
-		if err != nil {
-			panic(err)
-		}
-		c.Add(rcv)
+		rcv, err := receivers.NewCSV(*outCSVFile)
+		check(err)
+		collector.Add(rcv)
 	}
 
 	// Write out to a JSON file
 	if *outJSON {
-		rcv, err := extractor.NewJSONReceiver(*outJSONFile)
-		if err != nil {
-			panic(err)
-		}
-		c.Add(rcv)
+		rcv, err := receivers.NewJSON(*outJSONFile)
+		check(err)
+		collector.Add(rcv)
 	}
 
 	// Index to elasticsearch
 	if *outES {
-		rcv, err := extractor.NewESReceiver(*outESIdx, *outESHost, *outESPort, *outESSecure)
-		if err != nil {
-			panic(err)
-		}
-		c.Add(rcv)
+		rcv, err := receivers.NewElasticsearch(*outESIdx, *outESHost, *outESPort, *outESSecure)
+		check(err)
+		collector.Add(rcv)
 	}
 
 	// log to stdout if no other receiver is set, or stdout is explicitly set
-	if *outStd || len(c.Receivers) == 0 {
-		c.Add(extractor.NewStdoutReceiver(*outCSVFile))
+	if *outStd || len(collector.Receivers) == 0 {
+		collector.Add(receivers.NewStdout())
 	}
 
-	c.Collect()
+	err = collector.Collect()
+	check(err)
+	for err := range collector.Errors() {
+		fmt.Println(err.Error())
+	}
 	fmt.Printf("\n...Done in %s\n", time.Since(started).String())
+}
+
+//
+// Helpers
+//
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
 
 func parseTime(date string) time.Time {
