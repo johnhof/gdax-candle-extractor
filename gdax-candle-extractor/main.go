@@ -140,9 +140,6 @@ func main() {
 
 	err = collector.Collect()
 	check(err)
-	for err := range collector.Errors() {
-		fmt.Println(err.Error())
-	}
 	fmt.Printf("\n...Done in %s\n", time.Since(started).String())
 }
 

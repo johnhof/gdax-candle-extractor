@@ -2,21 +2,30 @@ package extractor
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
-// Collector acts as an N fanout pipe from an extractor to receivers
+// Collector acts as an N fanout pipe from an extractor to receivers. It also simplifies collection by abstracting channel complexity
 type Collector struct {
+	// Extractor is expected to pass candlesticks and errors over their respective channels
 	Extractor Collectable
+	// Receivers is the list of receivers that receive candlesticks over the `.Collect()` function
 	Receivers []Receiver
-	ErrorChan chan error
-	running   bool
+	// Error handler syncronously passes errors from the extrator to the function. Default function prints to stdout
+	ErrorHandler func(error)
+	// running tracks whether or not the collecter is active
+	running bool
 }
 
 // CollectorConfig encapsulates the collection configuration and process
 type CollectorConfig struct {
+	// Extractor is expected to pass candlesticks and errors over their respective channels
 	Extractor Collectable
+	// Receivers is the list of receivers that receive candlesticks over the `.Collect()` function
 	Receivers []Receiver
+	// Override the default error handler, which prints to stdout
+	ErrorHandler func(error)
 }
 
 // Collectable provides an abstraction to allow any etractor impementation to be used
@@ -28,10 +37,18 @@ type Collectable interface {
 
 // NewCollector builds a collector with the provided chan, and using any receivers provided
 func NewCollector(config *CollectorConfig) *Collector {
-	return &Collector{
+	c := &Collector{
 		Extractor: config.Extractor,
 		Receivers: config.Receivers,
 	}
+	if config.ErrorHandler != nil {
+		c.ErrorHandler = config.ErrorHandler
+	} else {
+		c.ErrorHandler = func(e error) {
+			fmt.Printf("Extraction Error: %s\n", e.Error())
+		}
+	}
+	return c
 }
 
 // Add adds the receiver to the list of reveivers to be used when the collection fires
@@ -45,7 +62,6 @@ func (c *Collector) Collect() error {
 		return errors.New("Collection already started")
 	}
 	defer c.Close()
-	c.ErrorChan = make(chan error)
 
 	if len(c.Receivers) == 0 {
 		return errors.New("No receivers set for the collector when Collect was called")
@@ -66,10 +82,11 @@ func (c *Collector) Collect() error {
 	go func() {
 		defer wg.Done()
 		for err := range c.Extractor.Errors() {
-			c.ErrorChan <- err
+			c.ErrorHandler(err)
 		}
 	}()
 	wg.Wait()
+	c.Close()
 	return nil
 }
 
@@ -77,20 +94,15 @@ func (c *Collector) fanOut(cdl *Candlestick) (err error) {
 	for _, rcv := range c.Receivers {
 		cErr := rcv.Collect(cdl)
 		if cErr != nil {
-			c.ErrorChan <- cErr
+			c.ErrorHandler(cErr)
 		}
 	}
 	return nil
 }
 
-func (c *Collector) Errors() chan error {
-	return c.ErrorChan
-}
-
 // Close stops the extractor and closes all receivers
 func (c *Collector) Close() {
 	c.running = false
-	close(c.ErrorChan)
 
 	// Close all receivers
 	for i := range c.Receivers {

@@ -40,9 +40,11 @@ type ExtractionConfig struct {
 func New(config *ExtractorConfig) *Extractor {
 	client := exchange.NewClient(config.Secret, config.Key, config.Passphrase)
 	return &Extractor{
-		Client: client,
-		Config: config,
-		Logger: config.Logger,
+		Client:          client,
+		Config:          config,
+		Logger:          config.Logger,
+		CandlestickChan: make(chan *Candlestick, config.BufferSize),
+		ErrorChan:       make(chan error, config.BufferSize),
 	}
 }
 
@@ -55,9 +57,6 @@ func (m *Extractor) Start() error {
 
 	// sleep time is used to wait between requests and evade ratelimiting
 	waitMin := 400 * time.Millisecond
-
-	m.CandlestickChan = make(chan *Candlestick, m.Config.BufferSize)
-	m.ErrorChan = make(chan error, m.Config.BufferSize)
 
 	// Make a request every .4 seconds(to avoid ratelimiting). pipe the output to the collectors
 	m.running = true
@@ -105,6 +104,12 @@ func (m *Extractor) Stop() {
 	m.running = false
 	close(m.CandlestickChan)
 	close(m.ErrorChan)
+}
+
+// Reset overwrites the old channels with new channels
+func (m *Extractor) Reset() {
+	m.CandlestickChan = make(chan *Candlestick, m.Config.BufferSize)
+	m.ErrorChan = make(chan error, m.Config.BufferSize)
 }
 
 // Candlesticks returns the candlestick channel
