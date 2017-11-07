@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/johnhof/gdax-candle-extractor/extractor"
@@ -47,11 +48,11 @@ func (r *CSVRcv) Collect(c *extractor.Candlestick) error {
 	defer r.Writer.Flush()
 	t := string(c.Datetime)
 	g := strconv.Itoa(c.Granularity)
-	l := strconv.FormatFloat(c.Low, 'E', -1, 64)
-	h := strconv.FormatFloat(c.High, 'E', -1, 64)
-	o := strconv.FormatFloat(c.Open, 'E', -1, 64)
-	cl := strconv.FormatFloat(c.Close, 'E', -1, 64)
-	v := strconv.FormatFloat(c.Volume, 'E', -1, 64)
+	l := fToS(c.Low)
+	h := fToS(c.High)
+	o := fToS(c.Open)
+	cl := fToS(c.Close)
+	v := fToS(c.Volume)
 	row := []string{t, g, l, h, o, cl, v}
 	err := r.Writer.Write(row)
 	if err != nil {
@@ -63,4 +64,8 @@ func (r *CSVRcv) Collect(c *extractor.Candlestick) error {
 // Close closes the file pointer
 func (r *CSVRcv) Close() {
 	r.Pointer.Close()
+}
+
+func fToS(f float64) string {
+	return strings.Trim(fmt.Sprintf("%f", f), "0")
 }

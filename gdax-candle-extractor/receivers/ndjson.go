@@ -8,15 +8,15 @@ import (
 	"github.com/johnhof/gdax-candle-extractor/extractor"
 )
 
-// JSONRcv implements Receiver to allow it to be used in a collector
-type NLDJSONRcv struct {
+// NDJSONRcv implements Receiver to allow it to be used in a collector
+type NDJSONRcv struct {
 	Path    string
 	Pointer *os.File
 	Mutex   *sync.Mutex
 }
 
-// NewNDLJSON build a json Receiver, cretating a blank file. existing files will be overwritten
-func NewNLDJSON(path string) (*JSONRcv, error) {
+// NewNDJSON build a json Receiver, cretating a blank file. existing files will be overwritten
+func NewNDJSON(path string) (*JSONRcv, error) {
 	ptr, err := os.Create(path)
 	if err != nil {
 		return &JSONRcv{}, err
@@ -27,13 +27,11 @@ func NewNLDJSON(path string) (*JSONRcv, error) {
 		Pointer: ptr,
 	}
 
-	_, err = rcv.Pointer.WriteString("[\n")
-
-	return rcv, err
+	return rcv, nil
 }
 
 // Collect writes the Candlestick to the output file
-func (r *NLDJSONRcv) Collect(c *extractor.Candlestick) error {
+func (r *NDJSONRcv) Collect(c *extractor.Candlestick) error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 
@@ -47,12 +45,12 @@ func (r *NLDJSONRcv) Collect(c *extractor.Candlestick) error {
 		return err
 	}
 
-	_, err = r.Pointer.WriteString(",\n")
+	_, err = r.Pointer.WriteString("\n")
 	return err
 }
 
 // Close closes the file pointer
-func (r *NLDJSONRcv) Close() {
+func (r *NDJSONRcv) Close() {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 	defer r.Pointer.Close()

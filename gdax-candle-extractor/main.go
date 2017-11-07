@@ -39,7 +39,7 @@ var (
 	bufferSize = kingpin.Flag("buffer-size", "Size of candlestick buffer waiting for collection").Short('b').
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_BUFFER_SIZE").
 			Default("100").Int()
-	start = kingpin.Flag("start", "start time as RFC3339").Short('S').
+	start = kingpin.Flag("start", "Start time as RFC3339").Short('S').
 		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_START").
 		Default(now.Add(-24 * 7 * time.Hour).Format(timeFmt)).String()
 	end = kingpin.Flag("end", "End time in as RFC3339").Short('E').
@@ -64,19 +64,26 @@ var (
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_JSON_FILE").
 			Default("out.json").String()
 
+	outNDJSON = kingpin.Flag("out-nd-json", "Write output to new line delimited JSON file").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ND_JSON").
+			Default("false").Bool()
+	outNDJSONFile = kingpin.Flag("out-nd-json-file", "Set the file to write to").
+			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ND_JSON_FILE").
+			Default("out.ndjson").String()
+
 	outES = kingpin.Flag("out-es", "Index output to elasticsearch").
 		OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES").
 		Default("false").Bool()
 	outESIdx = kingpin.Flag("out-es-index", "Elasticsearch index to use for output").
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_INDEX").
 			Default("candlestick").String()
-	outESHost = kingpin.Flag("out-es-host", "set the elasticsearch host to write to").
+	outESHost = kingpin.Flag("out-es-host", "Set the elasticsearch host to write to").
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_HOST").
 			Default("localhost").String()
-	outESPort = kingpin.Flag("out-es-port", "set the elasticsearch port to write to").
+	outESPort = kingpin.Flag("out-es-port", "Set the elasticsearch port to write to").
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_OUT_ES_PORT").
 			Default("9200").String()
-	outESSecure = kingpin.Flag("out-es-secure", "set the elasticsearch requests to use https").
+	outESSecure = kingpin.Flag("out-es-secure", "Set the elasticsearch requests to use https").
 			OverrideDefaultFromEnvar("GDAX_EXTRACTOR_SECURE").
 			Default("false").Bool()
 )
@@ -122,6 +129,13 @@ func main() {
 	// Write out to a JSON file
 	if *outJSON {
 		rcv, err := receivers.NewJSON(*outJSONFile)
+		check(err)
+		collector.Add(rcv)
+	}
+
+	// Write out to a newline delimited JSON file
+	if *outNDJSON {
+		rcv, err := receivers.NewNDJSON(*outNDJSONFile)
 		check(err)
 		collector.Add(rcv)
 	}

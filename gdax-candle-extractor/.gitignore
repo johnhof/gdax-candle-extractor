@@ -3,4 +3,5 @@ keys
 local.*
 *.local
 *.local.*
+out.*
 vendor

@@ -8,6 +8,7 @@ This utility supports outputting data to the following collection tools:
   * stdout
   * CSV file
   * JSON file
+  * Newline delimited JSON file
   * Elasticsearch index
 
 `go get github.com/johnhof/gdax-candle-extractor`
@@ -22,33 +23,33 @@ This utility supports outputting data to the following collection tools:
 
 ### Options
 
+The following options are the result of `--help`. The text is modified to include environment var alternatives which will override the defaults, but not command line params.
+
 ```bash
-    --help                              Show context-sensitive help (also try --help-long and --help-man).
-    --version                           Show application version.
+      --help                                                                context-sensitive help (also try --help-long and --help-man).
+  -v, --verbose,          GDAX_EXTRACTOR_VERBOSE                            verbose logging
+  -k, --key,              GDAX_API_KEY=KEY                                  GDAX API key
+  -s, --secret,           GDAX_API_SECRET=SECRET                            GDAX API secret
+  -p, --passphrase,       GDAX_API_PASSPHRASE=PASSPHRASE                    GDAX API passphrase
+      --product,          GDAX_EXTRACTOR_PRODUCT=PRODUCT                    Product ID to extract [BTC-USD, ETH-USD, LTC-USD]
+  -G, --granularity,      GDAX_EXTRACTOR_GRANULARITY=86400                  Granularity in seconds of blocks in the candlestick data
+  -b, --buffer-size,      GDAX_EXTRACTOR_BUFFER_SIZE=100                    Size of candlestick buffer waiting for collection
+  -S, --start,            GDAX_EXTRACTOR_START="2017-10-31T00:11:58-07:00"  Start time as RFC3339
+  -E, --end,              GDAX_EXTRACTOR_END="2017-11-06T23:11:58-08:00"    End time in as RFC3339
+      --out-stdout,       GDAX_EXTRACTOR_OUT_STDOUT                         Write output to stdout. Used by default if no other output is specified
+      --out-csv,          GDAX_EXTRACTOR_OUT_CSV                            Write output to CSV file
+      --out-csv-file,     GDAX_EXTRACTOR_OUT_CSV_FILE="out.csv"             Set the file to write to
+      --out-json,         GDAX_EXTRACTOR_OUT_JSON                           Write output to JSON file
+      --out-json-file,    GDAX_EXTRACTOR_OUT_JSON_FILE="out.json"           Set the file to write to
+      --out-nd-json,      GDAX_EXTRACTOR_OUT_ND_JSON                        Write output to new line delimited JSON file
+      --out-nd-json-file, GDAX_EXTRACTOR_OUT_ND_JSON_FILE="out.ndjson"      Set the file to write to
+      --out-es,           GDAX_EXTRACTOR_OUT_ES                             Index output to elasticsearch
+      --out-es-index,     GDAX_EXTRACTOR_OUT_ES_INDEX="candlestick"         Elasticsearch index to use for output
+      --out-es-host,      GDAX_EXTRACTOR_OUT_ES_HOST="localhost"            Set the elasticsearch host to write to
+      --out-es-port,      GDAX_EXTRACTOR_OUT_ES_PORT="9200"                 Set the elasticsearch port to write to
+      --out-es-secure,    GDAX_EXTRACTOR_SECURE                             Set the elasticsearch requests to use https
+      --version                                                             Show application version.
 
--v, --verbose                           verbose logging
-
--k, --key=KEY                           GDAX API key
--s, --secret=SECRET                     GDAX API secret
--p, --passphrase=PASSPHRASE             GDAX API passphrase
-    --product=PRODUCT                   Product ID to extract [BTC-USD, ETH-USD, LTC-USD]
--G, --granularity=86400                 Granularity in seconds of blocks in the candlestick data
--S, --start="2017-06-05T11:46:30-07:00" start time as RFC3339
--E, --end="2017-06-12T11:46:30-07:00"   End time in as RFC3339
-
-    --out-stdout                        Write output to stdout. Used by default if no other output is specified
-
-    --out-csv                           Write output to CSV file
-    --out-csv-file="out.csv"            Set the file to write to
-
-    --out-json                          Write output to JSON file
-    --out-json-file="out.json"          Set the file to write to
-
-    --out-es                            Index output to elasticsearch
-    --out-es-index="candlestick"        Elasticsearch index to use for output
-    --out-es-host="localhost"           set the elasticsearch host to write to
-    --out-es-port="9200"                set the elasticsearch port to write to
-    --out-es-secure                     set the elasticsearch requests to use https
 ```
 
 ## Programmatic usage
@@ -58,57 +59,63 @@ The source is comprised of two discrete steps
   - Create an extractor
   - Run the extractor
     - Begins extraction using the provided config
-    - Pushes candlestick data onto the pipe
-    - CandlePipe wraps [io.Pipe()](https://golang.org/pkg/io/#Pipe)
-      - No internal buffering exists
-      - Writes will block until data is read
+    - Pushes candlestick data onto the candlestick channel
+    - Pushed retrieval errors onto the error channel
 
 - Collection
   - Either
-    - Build your own logic reading Candlestick's directly from the pipe
+    - Build your own logic reading Candlestick's directly from the cannel
     - Use the provided collector
       - Either
         - Build a custom receiver and add it to the collector
-        - Use N provided receivers
+        - Use one of the provided receivers
 
 ```go
 package main
 
 import (
-  receivers "./custom-receivers"
+  myReceivers "./custom-receivers"
   "github.com/johnhof/gdax-candle-extractor/extractor"
+  "github.com/johnhof/gdax-candle-extractor/receivers"
 }
 
 func main() {
   // Create the extractor
-	m := extractor.New(extractor.ExtractorConfig{
+	extract := extractor.New(&extractor.ExtractorConfig{
 		Key:        "SuperSecretGDAXKey",
 		Secret:     "SuperSecretGDAXSecret",
-		Passphrase: "SuperSecretGDAXPassphrase",
+    Passphrase: "SuperSecretGDAXPassphrase",
+		Extraction: &extractor.ExtractionConfig{
+      Product:     "BTC-USD", // Bitcoin price in US dollars
+      Granularity: 5, // candlesticks split by  5 second chunks
+      Start:       time.Now().Sub(24*time.Hour), // from yesterday
+      End:         time.Now(), // until now
+		},
 	})
 
   // Start extracting
-	pipe := m.Extract(extractor.ExtractingConfig{
-		Product:     "BTC-USD", // Bitcoin price in US dollars
-    Granularity: 5, // Every 5 seconds
-		Start:       time.Now().Sub(24*time.Hour), // from yesterday
-		End:         time.Now(), // until now
+  err := extract.Extract()
+  if err != nil {
+    panic(err)
+  }
+
+  // Create a collector to simplify candlestick collection from the extractor
+	c := extractor.NewCollector(&extractor.CollectorConfig{
+		Extractor: extract,
 	})
 
-  // Create a collector to simplify candlestick collection from the pipe
-	c := extractor.NewCollector(pipe)
-
 	// Create a CSV receiver to write to
-	csv, err := extractor.NewCSVReceiver("out.csv")
+	csv, err := receivers.NewCSV("out.csv")
 	if err != nil {
 		panic(err)
 	}
 	c.Add(csv)
 
   // Add your custom receiver which implements extractor.Receiver
-  c.add(&receivers.Foo{})
+  c.Add(&myReceivers.Foo{})
 
-  // Start pulling data from the extractor pipe, and forwarding it to all receivers
+  // Start pulling data from the extractor channels, and forwarding it to all receivers
+  // Errors will be printed to stoud unless a handler is set
   c.Collect()
 }
 ```
