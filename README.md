@@ -21,6 +21,27 @@ This utility supports outputting data to the following collection tools:
 
 `$ gdax-candle-extractor -start=2017-01-01T00:00:09+00:00 -granularity=3600 -out-type=csv -out-path=./data.csv`
 
+## Docker usage
+
+Either 
+
+`git clone git@github.com:johnhof/gdax-candle-extractor.git && docker build gdax-candle-extractor -t extractor`
+
+Or
+
+``
+
+```bash
+docker run \
+-e GDAX_API_KEY=foo_key \
+-e GDAX_API_SECRET=foo_secret \
+-e GDAX_API_PASSPHRASE=foo_phrase \
+-e GDAX_EXTRACTOR_PRODUCT=ETH-USD \
+-e GDAX_EXTRACTOR_VERBOSE=true \
+extractor 
+
+```
+
 ### Options
 
 The following options are the result of `--help`. The text is modified to include environment var alternatives which will override the defaults, but not command line params.
