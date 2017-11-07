@@ -25,11 +25,11 @@ This utility supports outputting data to the following collection tools:
 
 Either 
 
-`git clone git@github.com:johnhof/gdax-candle-extractor.git && docker build gdax-candle-extractor -t extractor`
+`git clone git@github.com:johnhof/gdax-candle-extractor.git && docker build gdax-candle-extractor -t johnhof/gdax-candle-extractor`
 
 Or
 
-``
+`docker pull johnhof/gdax-candle-extractor`
 
 ```bash
 docker run \
@@ -38,7 +38,7 @@ docker run \
 -e GDAX_API_PASSPHRASE=foo_phrase \
 -e GDAX_EXTRACTOR_PRODUCT=ETH-USD \
 -e GDAX_EXTRACTOR_VERBOSE=true \
-extractor 
+johnhof/gdax-candle-extractor 
 
 ```
 
