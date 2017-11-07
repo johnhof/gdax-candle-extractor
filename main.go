@@ -89,7 +89,7 @@ var (
 )
 
 func main() {
-	kingpin.Version("1.0.0")
+	kingpin.Version("1.1.1")
 	kingpin.Parse()
 	if *verbose {
 		printVars()
