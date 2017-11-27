@@ -19,7 +19,7 @@ This utility supports outputting data to the following collection tools:
 
 **Get candlestick data for each hour since the beginning of 01/01/17, and pipe it to a csv file**
 
-`$ gdax-candle-extractor -start=2017-01-01T00:00:09+00:00 -granularity=3600 -out-type=csv -out-path=./data.csv`
+`$ gdax-candle-extractor -start=2017-01-01T00:00:09+00:00 -granularity=3600 -out-csv -out-csv-file=./data.csv`
 
 ## Docker usage
 
@@ -81,11 +81,11 @@ The source is comprised of two discrete steps
   - Run the extractor
     - Begins extraction using the provided config
     - Pushes candlestick data onto the candlestick channel
-    - Pushed retrieval errors onto the error channel
+    - Pushes retrieval errors onto the error channel
 
 - Collection
   - Either
-    - Build your own logic reading Candlestick's directly from the cannel
+    - Build your own logic reading Candlestick's directly from the channel
     - Use the provided collector
       - Either
         - Build a custom receiver and add it to the collector
@@ -95,32 +95,32 @@ The source is comprised of two discrete steps
 package main
 
 import (
-  myReceivers "./custom-receivers"
-  "github.com/johnhof/gdax-candle-extractor/extractor"
-  "github.com/johnhof/gdax-candle-extractor/receivers"
+	myReceivers "./custom-receivers"
+	"github.com/johnhof/gdax-candle-extractor/extractor"
+	"github.com/johnhof/gdax-candle-extractor/receivers"
 }
 
 func main() {
-  // Create the extractor
+	// Create the extractor
 	extract := extractor.New(&extractor.ExtractorConfig{
 		Key:        "SuperSecretGDAXKey",
 		Secret:     "SuperSecretGDAXSecret",
-    Passphrase: "SuperSecretGDAXPassphrase",
+		Passphrase: "SuperSecretGDAXPassphrase",
 		Extraction: &extractor.ExtractionConfig{
-      Product:     "BTC-USD", // Bitcoin price in US dollars
-      Granularity: 5, // candlesticks split by  5 second chunks
-      Start:       time.Now().Sub(24*time.Hour), // from yesterday
-      End:         time.Now(), // until now
+			Product:     "BTC-USD", // Bitcoin price in US dollars
+			Granularity: 5, // candlesticks split by  5 second chunks
+			Start:       time.Now().Sub(24*time.Hour), // from yesterday
+			End:         time.Now(), // until now
 		},
 	})
 
-  // Start extracting
-  err := extract.Extract()
-  if err != nil {
-    panic(err)
-  }
+	// Start extracting
+	err := extract.Extract()
+	if err != nil {
+		panic(err)
+	}
 
-  // Create a collector to simplify candlestick collection from the extractor
+	// Create a collector to simplify candlestick collection from the extractor
 	c := extractor.NewCollector(&extractor.CollectorConfig{
 		Extractor: extract,
 	})
@@ -132,12 +132,12 @@ func main() {
 	}
 	c.Add(csv)
 
-  // Add your custom receiver which implements extractor.Receiver
-  c.Add(&myReceivers.Foo{})
+	// Add your custom receiver which implements extractor.Receiver
+	c.Add(&myReceivers.Foo{})
 
-  // Start pulling data from the extractor channels, and forwarding it to all receivers
-  // Errors will be printed to stoud unless a handler is set
-  c.Collect()
+	// Start pulling data from the extractor channels, and forwarding it to all receivers
+	// Errors will be printed to stoud unless a handler is set
+	c.Collect()
 }
 ```
 
